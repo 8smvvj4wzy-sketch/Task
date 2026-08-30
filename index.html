@@ -1,0 +1,269 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Check-list</title>
+<style>
+  :root{
+    --fond:#ECEFE9;
+    --carte:#FCFCFA;
+    --encre:#1E2620;
+    --doux:#5F6B62;
+    --trait:#D2D8CC;
+    --haute:#93331F;
+    --moyenne:#8A6A22;
+    --basse:#4F6B57;
+    --retard:#93331F;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;
+    background:var(--fond);
+    color:var(--encre);
+    font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    padding:28px 16px 64px;
+  }
+  .page{max-width:660px;margin:0 auto}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:18px}
+  h1{
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    font-size:31px;font-weight:600;letter-spacing:-.01em;margin:0;
+  }
+  .compte{color:var(--doux);font-size:14px;white-space:nowrap}
+
+  form{
+    background:var(--carte);border:1px solid var(--trait);border-radius:8px;
+    padding:12px;display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;
+  }
+  form input[type=text]{flex:1 1 220px;min-width:0}
+  input,select,button{font:inherit;color:inherit}
+  input[type=text],input[type=date],select{
+    background:#fff;border:1px solid var(--trait);border-radius:6px;padding:8px 10px;
+  }
+  input[type=text]:focus,input[type=date]:focus,select:focus,button:focus-visible{
+    outline:2px solid #2E4756;outline-offset:1px;
+  }
+  .ajouter{
+    background:#2E4756;color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;
+  }
+  .ajouter:hover{background:#243947}
+
+  ul{list-style:none;margin:0;padding:0}
+  li{
+    background:var(--carte);border:1px solid var(--trait);border-left-width:4px;border-radius:6px;
+    padding:10px 12px;margin-bottom:8px;
+    display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  }
+  li.p-haute{border-left-color:var(--haute)}
+  li.p-moyenne{border-left-color:var(--moyenne)}
+  li.p-basse{border-left-color:var(--basse)}
+  li.faite{opacity:.55;border-left-color:var(--trait)}
+  li.faite .titre{text-decoration:line-through}
+
+  input[type=checkbox]{width:19px;height:19px;flex:none;accent-color:#2E4756;cursor:pointer}
+  .titre{flex:1 1 180px;min-width:0;cursor:text;padding:2px 0;word-break:break-word}
+  .titre-edit{flex:1 1 180px;min-width:0}
+  .prio{
+    border:1px solid var(--trait);background:#fff;border-radius:999px;
+    padding:3px 11px;font-size:13px;cursor:pointer;flex:none;
+  }
+  .prio.p-haute{color:var(--haute)}
+  .prio.p-moyenne{color:var(--moyenne)}
+  .prio.p-basse{color:var(--basse)}
+  .echeance{font-size:13px;padding:5px 7px;flex:none;color:var(--doux)}
+  .delai{font-size:13px;color:var(--doux);flex:none}
+  .delai.urgent{color:var(--retard)}
+  .suppr{
+    border:none;background:none;color:var(--doux);font-size:19px;line-height:1;
+    padding:2px 6px;cursor:pointer;flex:none;border-radius:4px;
+  }
+  .suppr:hover{color:var(--retard);background:#F0E7E4}
+
+  .vide{color:var(--doux);text-align:center;padding:34px 12px}
+  .pied{display:flex;justify-content:space-between;gap:12px;margin-top:18px;font-size:14px}
+  .pied button{background:none;border:none;color:var(--doux);cursor:pointer;text-decoration:underline;padding:0}
+  .pied button:hover{color:var(--encre)}
+  @media (max-width:420px){ .echeance{flex:1 1 130px} }
+</style>
+
+<div class="page">
+  <header>
+    <h1>Check-list</h1>
+    <span class="compte" id="compte"></span>
+  </header>
+
+  <form id="form">
+    <input type="text" id="saisie" placeholder="Ajouter une tâche" autocomplete="off" required>
+    <select id="prio">
+      <option value="haute">Priorité haute</option>
+      <option value="moyenne" selected>Priorité moyenne</option>
+      <option value="basse">Priorité basse</option>
+    </select>
+    <input type="date" id="date" aria-label="Échéance (facultative)">
+    <button class="ajouter" type="submit">Ajouter</button>
+  </form>
+
+  <ul id="liste"></ul>
+  <div class="vide" id="vide" hidden>Rien pour le moment. Ajoute une première tâche ci-dessus.</div>
+
+  <div class="pied">
+    <label><input type="checkbox" id="masquer" style="width:15px;height:15px;vertical-align:-2px"> Masquer les tâches faites</label>
+    <button type="button" id="purger">Supprimer les tâches faites</button>
+  </div>
+</div>
+
+<script>
+const CLE = 'checklist:taches';
+let taches = [];
+
+async function charger(){
+  try{
+    if (window.storage){
+      const r = await window.storage.get(CLE, false);
+      return r ? JSON.parse(r.value) : [];
+    }
+  }catch(e){ return []; }
+  try{ const brut = localStorage.getItem(CLE); return brut ? JSON.parse(brut) : []; }
+  catch(e){ return []; }
+}
+
+async function enregistrer(){
+  const val = JSON.stringify(taches);
+  try{
+    if (window.storage){ await window.storage.set(CLE, val, false); return; }
+  }catch(e){ /* on retombe sur le stockage local */ }
+  try{ localStorage.setItem(CLE, val); }catch(e){}
+}
+
+const poids = {haute:0, moyenne:1, basse:2};
+const suivante = {haute:'moyenne', moyenne:'basse', basse:'haute'};
+const aujourdhui = () => new Date().toLocaleDateString('sv');
+
+function trier(a, b){
+  if (a.faite !== b.faite) return a.faite ? 1 : -1;
+  if (poids[a.prio] !== poids[b.prio]) return poids[a.prio] - poids[b.prio];
+  if (a.date && b.date) return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+  if (a.date) return -1;
+  if (b.date) return 1;
+  return a.cree - b.cree;
+}
+
+function delai(d){
+  if (!d) return null;
+  const j = Math.round((new Date(d + 'T00:00') - new Date(aujourdhui() + 'T00:00')) / 86400000);
+  if (j < 0) return {texte: j === -1 ? 'hier' : 'en retard de ' + (-j) + ' jours', urgent: true};
+  if (j === 0) return {texte: "aujourd'hui", urgent: true};
+  if (j === 1) return {texte: 'demain', urgent: true};
+  if (j < 7) return {texte: 'dans ' + j + ' jours', urgent: false};
+  return null;
+}
+
+function afficher(){
+  const liste = document.getElementById('liste');
+  const masquer = document.getElementById('masquer').checked;
+  liste.innerHTML = '';
+  const visibles = taches.slice().sort(trier).filter(t => !(masquer && t.faite));
+
+  for (const t of visibles){
+    const li = document.createElement('li');
+    li.className = 'p-' + t.prio + (t.faite ? ' faite' : '');
+
+    const coche = document.createElement('input');
+    coche.type = 'checkbox';
+    coche.checked = t.faite;
+    coche.setAttribute('aria-label', 'Marquer comme faite');
+    coche.onchange = () => { t.faite = coche.checked; maj(); };
+
+    const titre = document.createElement('span');
+    titre.className = 'titre';
+    titre.textContent = t.titre;
+    titre.title = 'Cliquer pour modifier';
+    titre.onclick = () => modifier(li, titre, t);
+
+    const prio = document.createElement('button');
+    prio.type = 'button';
+    prio.className = 'prio p-' + t.prio;
+    prio.textContent = t.prio;
+    prio.title = 'Changer la priorité';
+    prio.onclick = () => { t.prio = suivante[t.prio]; maj(); };
+
+    const date = document.createElement('input');
+    date.type = 'date';
+    date.className = 'echeance';
+    date.value = t.date || '';
+    date.setAttribute('aria-label', 'Échéance');
+    date.onchange = () => { t.date = date.value || null; maj(); };
+
+    const suppr = document.createElement('button');
+    suppr.type = 'button';
+    suppr.className = 'suppr';
+    suppr.textContent = '×';
+    suppr.title = 'Supprimer';
+    suppr.onclick = () => { taches = taches.filter(x => x !== t); maj(); };
+
+    li.append(coche, titre, prio, date);
+    const d = t.faite ? null : delai(t.date);
+    if (d){
+      const info = document.createElement('span');
+      info.className = 'delai' + (d.urgent ? ' urgent' : '');
+      info.textContent = d.texte;
+      li.append(info);
+    }
+    li.append(suppr);
+    liste.append(li);
+  }
+
+  const restantes = taches.filter(t => !t.faite).length;
+  document.getElementById('compte').textContent =
+    taches.length ? restantes + ' à faire sur ' + taches.length : '';
+  document.getElementById('vide').hidden = taches.length > 0;
+}
+
+function modifier(li, titre, t){
+  const champ = document.createElement('input');
+  champ.type = 'text';
+  champ.className = 'titre-edit';
+  champ.value = t.titre;
+  const valider = () => {
+    const v = champ.value.trim();
+    if (v) t.titre = v;
+    maj();
+  };
+  champ.onblur = valider;
+  champ.onkeydown = e => {
+    if (e.key === 'Enter') valider();
+    if (e.key === 'Escape') afficher();
+  };
+  li.replaceChild(champ, titre);
+  champ.focus();
+  champ.select();
+}
+
+function maj(){ afficher(); enregistrer(); }
+
+document.getElementById('form').onsubmit = e => {
+  e.preventDefault();
+  const saisie = document.getElementById('saisie');
+  const v = saisie.value.trim();
+  if (!v) return;
+  taches.push({
+    titre: v,
+    prio: document.getElementById('prio').value,
+    date: document.getElementById('date').value || null,
+    faite: false,
+    cree: Date.now()
+  });
+  saisie.value = '';
+  document.getElementById('date').value = '';
+  saisie.focus();
+  maj();
+};
+
+document.getElementById('masquer').onchange = afficher;
+document.getElementById('purger').onclick = () => {
+  if (!taches.some(t => t.faite)) return;
+  taches = taches.filter(t => !t.faite);
+  maj();
+};
+
+charger().then(t => { taches = Array.isArray(t) ? t : []; afficher(); });
+</script>
