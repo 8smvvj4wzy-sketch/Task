@@ -16,6 +16,9 @@
     --moyenne:#FF8C00;
     --basse:#12A150;
     --retard:#E8112D;
+    --quotidien:#2E6FD9;
+    --hebdomadaire:#7B4FE0;
+    --mensuel:#0E8C86;
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
@@ -87,7 +90,48 @@
   .pied{display:flex;justify-content:space-between;gap:12px;margin-top:18px;font-size:14px}
   .pied button{background:none;border:none;color:var(--doux);cursor:pointer;text-decoration:underline;padding:0}
   .pied button:hover{color:var(--encre)}
-  @media (max-width:420px){ .echeance{flex:1 1 130px} }
+
+  .habitudes{margin-top:34px}
+  .habitudes h2{
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    font-size:22px;font-weight:600;margin:0 0 14px;
+  }
+
+  li.habitude{border-left-color:var(--trait)}
+  li.habitude.f-quotidien{border-left-color:var(--quotidien)}
+  li.habitude.f-hebdomadaire{border-left-color:var(--hebdomadaire)}
+  li.habitude.f-mensuel{border-left-color:var(--mensuel)}
+  li.habitude.atteint{border-left-color:var(--basse)}
+
+  .freq{
+    border:none;border-radius:999px;color:#fff;font-weight:700;
+    padding:3px 12px;font-size:13px;cursor:pointer;flex:none;
+    text-transform:uppercase;letter-spacing:.02em;
+  }
+  .freq.f-quotidien{background:var(--quotidien)}
+  .freq.f-hebdomadaire{background:var(--hebdomadaire)}
+  .freq.f-mensuel{background:var(--mensuel)}
+
+  .objectif{width:56px;flex:none;background:#fff;border:1px solid var(--trait);border-radius:6px;padding:8px 6px;text-align:center}
+
+  .barre{flex:1 1 100px;height:8px;background:var(--trait);border-radius:999px;overflow:hidden}
+  .barre .remplissage{height:100%;background:var(--doux);border-radius:999px;transition:width .2s}
+  li.habitude.atteint .barre .remplissage{background:var(--basse)}
+
+  .compte-habitude{font-size:13px;color:var(--doux);flex:none}
+  li.habitude.atteint .compte-habitude{color:var(--basse);font-weight:600}
+
+  .incr{border:none;background:#2E4756;color:#fff;border-radius:6px;padding:5px 10px;cursor:pointer;flex:none;font-weight:600}
+  .incr:hover{background:#243947}
+
+  .annuler{border:none;background:none;color:var(--doux);font-size:16px;cursor:pointer;flex:none;padding:2px 6px;border-radius:4px}
+  .annuler:hover:not(:disabled){color:var(--encre);background:var(--fond)}
+  .annuler:disabled{opacity:.35;cursor:default}
+
+  @media (max-width:420px){
+    .echeance{flex:1 1 130px}
+    .barre{flex:1 1 100%;order:1}
+  }
 </style>
 
 <div class="page">
@@ -114,29 +158,48 @@
     <label><input type="checkbox" id="masquer" style="width:15px;height:15px;vertical-align:-2px"> Masquer les tâches faites</label>
     <button type="button" id="purger">Supprimer les tâches faites</button>
   </div>
+
+  <section class="habitudes">
+    <h2>Habitudes</h2>
+    <form id="form-habitude">
+      <input type="text" id="saisie-habitude" placeholder="Nouvelle habitude" autocomplete="off" required>
+      <select id="frequence-habitude">
+        <option value="quotidien">Quotidienne</option>
+        <option value="hebdomadaire" selected>Hebdomadaire</option>
+        <option value="mensuel">Mensuelle</option>
+      </select>
+      <input type="number" id="objectif-habitude" min="1" value="1" required aria-label="Objectif">
+      <button class="ajouter" type="submit">Ajouter</button>
+    </form>
+
+    <ul id="liste-habitudes"></ul>
+    <div class="vide" id="vide-habitudes" hidden>Aucune habitude pour le moment.</div>
+  </section>
 </div>
 
 <script>
-const CLE = 'checklist:taches';
+const CLE_TACHES = 'checklist:taches';
+const CLE_HABITUDES = 'checklist:habitudes';
 let taches = [];
+let habitudes = [];
 
-async function charger(){
+async function chargerCle(cle){
   try{
     if (window.storage){
-      const r = await window.storage.get(CLE, false);
+      const r = await window.storage.get(cle, false);
       return r ? JSON.parse(r.value) : [];
     }
   }catch(e){ return []; }
-  try{ const brut = localStorage.getItem(CLE); return brut ? JSON.parse(brut) : []; }
+  try{ const brut = localStorage.getItem(cle); return brut ? JSON.parse(brut) : []; }
   catch(e){ return []; }
 }
 
-async function enregistrer(){
-  const val = JSON.stringify(taches);
+async function enregistrerCle(cle, valeur){
+  const val = JSON.stringify(valeur);
   try{
-    if (window.storage){ await window.storage.set(CLE, val, false); return; }
+    if (window.storage){ await window.storage.set(cle, val, false); return; }
   }catch(e){ /* on retombe sur le stockage local */ }
-  try{ localStorage.setItem(CLE, val); }catch(e){}
+  try{ localStorage.setItem(cle, val); }catch(e){}
 }
 
 const poids = {haute:0, moyenne:1, basse:2};
@@ -243,7 +306,148 @@ function modifier(li, titre, t){
   champ.select();
 }
 
-function maj(){ afficher(); enregistrer(); }
+function maj(){ afficher(); enregistrerCle(CLE_TACHES, taches); }
+
+function lundiDe(dateStr){
+  const d = new Date(dateStr + 'T00:00');
+  const jour = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - jour);
+  return d.toLocaleDateString('sv');
+}
+
+function cleDePeriode(frequence, dateStr){
+  if (frequence === 'hebdomadaire') return lundiDe(dateStr);
+  if (frequence === 'mensuel') return dateStr.slice(0, 7);
+  return dateStr;
+}
+
+function periodeActuelle(frequence){ return cleDePeriode(frequence, aujourdhui()); }
+
+function progression(h){
+  const cle = periodeActuelle(h.frequence);
+  return h.historique.filter(d => cleDePeriode(h.frequence, d) === cle).length;
+}
+
+const frequenceSuivante = {quotidien:'hebdomadaire', hebdomadaire:'mensuel', mensuel:'quotidien'};
+const LIBELLE_FREQ = {quotidien:'quotidien', hebdomadaire:'hebdo', mensuel:'mensuel'};
+const poidsFrequence = {quotidien:0, hebdomadaire:1, mensuel:2};
+
+function trierHabitudes(a, b){
+  if (poidsFrequence[a.frequence] !== poidsFrequence[b.frequence])
+    return poidsFrequence[a.frequence] - poidsFrequence[b.frequence];
+  return a.cree - b.cree;
+}
+
+function annulerDernier(h){
+  const cle = periodeActuelle(h.frequence);
+  for (let i = h.historique.length - 1; i >= 0; i--){
+    if (cleDePeriode(h.frequence, h.historique[i]) === cle){
+      h.historique.splice(i, 1);
+      break;
+    }
+  }
+}
+
+function modifierHabitude(li, titre, h){
+  const champ = document.createElement('input');
+  champ.type = 'text';
+  champ.className = 'titre-edit';
+  champ.value = h.titre;
+  const valider = () => {
+    const v = champ.value.trim();
+    if (v) h.titre = v;
+    majHabitudes();
+  };
+  champ.onblur = valider;
+  champ.onkeydown = e => {
+    if (e.key === 'Enter') valider();
+    if (e.key === 'Escape') afficherHabitudes();
+  };
+  li.replaceChild(champ, titre);
+  champ.focus();
+  champ.select();
+}
+
+function afficherHabitudes(){
+  const liste = document.getElementById('liste-habitudes');
+  liste.innerHTML = '';
+  const visibles = habitudes.slice().sort(trierHabitudes);
+
+  for (const h of visibles){
+    const n = progression(h);
+    const cible = Math.max(1, h.objectif || 1);
+    const atteint = n >= cible;
+
+    const li = document.createElement('li');
+    li.className = 'habitude f-' + h.frequence + (atteint ? ' atteint' : '');
+
+    const titre = document.createElement('span');
+    titre.className = 'titre';
+    titre.textContent = h.titre;
+    titre.title = 'Cliquer pour modifier';
+    titre.onclick = () => modifierHabitude(li, titre, h);
+
+    const freq = document.createElement('button');
+    freq.type = 'button';
+    freq.className = 'freq f-' + h.frequence;
+    freq.textContent = LIBELLE_FREQ[h.frequence];
+    freq.title = 'Changer la fréquence';
+    freq.onclick = () => { h.frequence = frequenceSuivante[h.frequence]; majHabitudes(); };
+
+    const objectif = document.createElement('input');
+    objectif.type = 'number';
+    objectif.className = 'objectif';
+    objectif.min = '1';
+    objectif.value = String(cible);
+    objectif.setAttribute('aria-label', 'Objectif');
+    objectif.onchange = () => {
+      h.objectif = Math.max(1, parseInt(objectif.value, 10) || 1);
+      majHabitudes();
+    };
+
+    const barre = document.createElement('div');
+    barre.className = 'barre';
+    const remplissage = document.createElement('div');
+    remplissage.className = 'remplissage';
+    remplissage.style.width = Math.min(100, (n / cible) * 100) + '%';
+    barre.append(remplissage);
+
+    const compte = document.createElement('span');
+    compte.className = 'compte-habitude';
+    compte.textContent = atteint
+      ? n + ' / ' + cible + ' — objectif atteint'
+      : n + ' / ' + cible + ' — encore ' + (cible - n);
+
+    const incr = document.createElement('button');
+    incr.type = 'button';
+    incr.className = 'incr';
+    incr.textContent = '+1';
+    incr.title = 'Ajouter une réalisation';
+    incr.onclick = () => { h.historique.push(aujourdhui()); majHabitudes(); };
+
+    const annuler = document.createElement('button');
+    annuler.type = 'button';
+    annuler.className = 'annuler';
+    annuler.textContent = '↺';
+    annuler.title = 'Annuler la dernière réalisation';
+    annuler.disabled = n === 0;
+    annuler.onclick = () => { annulerDernier(h); majHabitudes(); };
+
+    const suppr = document.createElement('button');
+    suppr.type = 'button';
+    suppr.className = 'suppr';
+    suppr.textContent = '×';
+    suppr.title = 'Supprimer';
+    suppr.onclick = () => { habitudes = habitudes.filter(x => x !== h); majHabitudes(); };
+
+    li.append(titre, freq, objectif, barre, compte, incr, annuler, suppr);
+    liste.append(li);
+  }
+
+  document.getElementById('vide-habitudes').hidden = habitudes.length > 0;
+}
+
+function majHabitudes(){ afficherHabitudes(); enregistrerCle(CLE_HABITUDES, habitudes); }
 
 document.getElementById('form').onsubmit = e => {
   e.preventDefault();
@@ -270,7 +474,31 @@ document.getElementById('purger').onclick = () => {
   maj();
 };
 
-charger().then(t => { taches = Array.isArray(t) ? t : []; afficher(); });
+document.getElementById('form-habitude').onsubmit = e => {
+  e.preventDefault();
+  const saisie = document.getElementById('saisie-habitude');
+  const v = saisie.value.trim();
+  if (!v) return;
+  const objectifInput = document.getElementById('objectif-habitude');
+  habitudes.push({
+    titre: v,
+    frequence: document.getElementById('frequence-habitude').value,
+    objectif: Math.max(1, parseInt(objectifInput.value, 10) || 1),
+    historique: [],
+    cree: Date.now()
+  });
+  saisie.value = '';
+  objectifInput.value = '1';
+  saisie.focus();
+  majHabitudes();
+};
+
+Promise.all([chargerCle(CLE_TACHES), chargerCle(CLE_HABITUDES)]).then(([t, h]) => {
+  taches = Array.isArray(t) ? t : [];
+  habitudes = Array.isArray(h) ? h : [];
+  afficher();
+  afficherHabitudes();
+});
 
 if ('serviceWorker' in navigator){
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
