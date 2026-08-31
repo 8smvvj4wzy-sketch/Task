@@ -1,6 +1,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Check-list</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✅</text></svg>">
 <style>
   :root{
     --fond:#ECEFE9;
@@ -8,10 +9,10 @@
     --encre:#1E2620;
     --doux:#5F6B62;
     --trait:#D2D8CC;
-    --haute:#93331F;
-    --moyenne:#8A6A22;
-    --basse:#4F6B57;
-    --retard:#93331F;
+    --haute:#E8112D;
+    --moyenne:#FF8C00;
+    --basse:#12A150;
+    --retard:#E8112D;
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
@@ -49,7 +50,7 @@
 
   ul{list-style:none;margin:0;padding:0}
   li{
-    background:var(--carte);border:1px solid var(--trait);border-left-width:4px;border-radius:6px;
+    background:var(--carte);border:1px solid var(--trait);border-left-width:8px;border-radius:6px;
     padding:10px 12px;margin-bottom:8px;
     display:flex;align-items:center;flex-wrap:wrap;gap:10px;
   }
@@ -59,16 +60,17 @@
   li.faite{opacity:.55;border-left-color:var(--trait)}
   li.faite .titre{text-decoration:line-through}
 
-  input[type=checkbox]{width:19px;height:19px;flex:none;accent-color:#2E4756;cursor:pointer}
+  input[type=checkbox]{width:19px;height:19px;flex:none;accent-color:#12A150;cursor:pointer}
   .titre{flex:1 1 180px;min-width:0;cursor:text;padding:2px 0;word-break:break-word}
   .titre-edit{flex:1 1 180px;min-width:0}
   .prio{
-    border:1px solid var(--trait);background:#fff;border-radius:999px;
-    padding:3px 11px;font-size:13px;cursor:pointer;flex:none;
+    border:none;border-radius:999px;color:#fff;font-weight:700;
+    padding:3px 12px;font-size:13px;cursor:pointer;flex:none;
+    text-transform:uppercase;letter-spacing:.02em;
   }
-  .prio.p-haute{color:var(--haute)}
-  .prio.p-moyenne{color:var(--moyenne)}
-  .prio.p-basse{color:var(--basse)}
+  .prio.p-haute{background:var(--haute)}
+  .prio.p-moyenne{background:var(--moyenne)}
+  .prio.p-basse{background:var(--basse)}
   .echeance{font-size:13px;padding:5px 7px;flex:none;color:var(--doux)}
   .delai{font-size:13px;color:var(--doux);flex:none}
   .delai.urgent{color:var(--retard)}
