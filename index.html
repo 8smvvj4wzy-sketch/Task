@@ -91,11 +91,79 @@
   .pied button{background:none;border:none;color:var(--doux);cursor:pointer;text-decoration:underline;padding:0}
   .pied button:hover{color:var(--encre)}
 
-  .habitudes{margin-top:34px}
-  .habitudes h2{
+  .habitudes,.suivi{margin-top:34px}
+  .habitudes h2,.suivi h2{
     font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
     font-size:22px;font-weight:600;margin:0 0 14px;
   }
+
+  .groupe{
+    background:var(--carte);border:1px solid var(--trait);border-left-width:8px;
+    border-left-color:var(--trait);border-radius:6px;margin-bottom:8px;
+  }
+  .groupe > summary{
+    display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;
+    list-style:none;user-select:none;
+  }
+  .groupe > summary::-webkit-details-marker{display:none}
+  .groupe > summary::before{content:'▸';color:var(--doux);font-size:13px;transition:transform .15s}
+  .groupe[open] > summary::before{transform:rotate(90deg)}
+  .groupe > summary:focus-visible{outline:2px solid #2E4756;outline-offset:-2px;border-radius:6px}
+  .pastille{
+    border-radius:999px;color:#fff;font-weight:700;padding:3px 12px;font-size:13px;
+    text-transform:uppercase;letter-spacing:.02em;flex:none;
+  }
+  .pastille.p-haute{background:var(--haute)}
+  .pastille.p-moyenne{background:var(--moyenne)}
+  .pastille.p-basse{background:var(--basse)}
+  .pastille.f-quotidien{background:var(--quotidien)}
+  .pastille.f-hebdomadaire{background:var(--hebdomadaire)}
+  .pastille.f-mensuel{background:var(--mensuel)}
+  .compte-groupe{color:var(--doux);font-size:13px}
+  /* dans un groupe, la couleur est déjà portée par l'en-tête : on évite le doublon */
+  .groupe > ul{padding:0 8px 8px}
+  .groupe li{border-left-color:var(--trait)}
+  .groupe.p-haute{border-left-color:var(--haute)}
+  .groupe.p-moyenne{border-left-color:var(--moyenne)}
+  .groupe.p-basse{border-left-color:var(--basse)}
+  .groupe.f-quotidien{border-left-color:var(--quotidien)}
+  .groupe.f-hebdomadaire{border-left-color:var(--hebdomadaire)}
+  .groupe.f-mensuel{border-left-color:var(--mensuel)}
+
+  .tuiles{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+  .tuile{
+    flex:1 1 150px;background:var(--carte);border:1px solid var(--trait);border-radius:6px;
+    padding:10px 12px;display:flex;flex-direction:column;gap:3px;
+  }
+  .tuile-valeur{font-size:25px;font-weight:600;line-height:1.1}
+  .tuile-libelle{font-size:12px;color:var(--doux)}
+
+  .evolution{
+    background:var(--carte);border:1px solid var(--trait);border-radius:6px;
+    padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  }
+  .evolution-titre{flex:1 1 160px;min-width:0;word-break:break-word}
+  .evolution-ratio{font-size:13px;color:var(--doux);flex:none}
+  .cases{display:flex;gap:3px;flex:none}
+  .case{width:13px;height:13px;border-radius:3px;background:#A7B0A2;flex:none}
+  .case.tenue{background:var(--basse)}
+
+  .suggestion{
+    background:var(--carte);border:1px solid var(--trait);border-left-width:8px;
+    border-left-color:var(--moyenne);border-radius:6px;padding:10px 12px;margin-bottom:8px;
+    display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:14px;
+  }
+  .suggestion-texte{flex:1 1 200px;min-width:0}
+  .appliquer{
+    border:none;background:#2E4756;color:#fff;border-radius:6px;padding:5px 12px;
+    cursor:pointer;flex:none;font-weight:600;font-size:14px;
+  }
+  .appliquer:hover{background:#243947}
+  .ignorer{
+    border:none;background:none;color:var(--doux);font-size:19px;line-height:1;
+    padding:2px 6px;cursor:pointer;flex:none;border-radius:4px;
+  }
+  .ignorer:hover{color:var(--retard);background:#F0E7E4}
 
   li.habitude{border-left-color:var(--trait)}
   li.habitude.f-quotidien{border-left-color:var(--quotidien)}
@@ -151,7 +219,7 @@
     <button class="ajouter" type="submit">Ajouter</button>
   </form>
 
-  <ul id="liste"></ul>
+  <div id="liste"></div>
   <div class="vide" id="vide" hidden>Rien pour le moment. Ajoute une première tâche ci-dessus.</div>
 
   <div class="pied">
@@ -172,16 +240,31 @@
       <button class="ajouter" type="submit">Ajouter</button>
     </form>
 
-    <ul id="liste-habitudes"></ul>
+    <div id="liste-habitudes"></div>
     <div class="vide" id="vide-habitudes" hidden>Aucune habitude pour le moment.</div>
+  </section>
+
+  <section class="suivi">
+    <h2>Suivi</h2>
+    <div id="suivi-contenu"></div>
+    <div class="vide" id="suivi-vide" hidden>
+      Pas encore de données. Coche des tâches avec une échéance et enregistre tes habitudes
+      pendant quelques périodes pour voir ton évolution ici.
+    </div>
   </section>
 </div>
 
 <script>
 const CLE_TACHES = 'checklist:taches';
 const CLE_HABITUDES = 'checklist:habitudes';
+const CLE_JOURNAL = 'checklist:journal';
+const CLE_PREFS = 'checklist:prefs';
+const SEUIL_GROUPES = 5;
+const PLAFOND_JOURNAL = 200;
 let taches = [];
 let habitudes = [];
+let journal = [];
+let prefs = {replis:{}, ignorees:[]};
 
 async function chargerCle(cle){
   try{
@@ -225,13 +308,48 @@ function delai(d){
   return null;
 }
 
-function afficher(){
-  const liste = document.getElementById('liste');
-  const masquer = document.getElementById('masquer').checked;
-  liste.innerHTML = '';
-  const visibles = taches.slice().sort(trier).filter(t => !(masquer && t.faite));
+function majPrefs(){ enregistrerCle(CLE_PREFS, prefs); }
+function majJournal(){ enregistrerCle(CLE_JOURNAL, journal); }
 
-  for (const t of visibles){
+function journaliser(t){
+  journal.push({
+    refTache: t.cree,
+    titre: t.titre,
+    echeance: t.date || null,
+    faiteLe: aujourdhui(),
+    respectee: t.date ? aujourdhui() <= t.date : null
+  });
+  if (journal.length > PLAFOND_JOURNAL) journal = journal.slice(-PLAFOND_JOURNAL);
+  majJournal();
+}
+
+function deJournaliser(t){
+  for (let i = journal.length - 1; i >= 0; i--){
+    if (journal[i].refTache === t.cree){ journal.splice(i, 1); break; }
+  }
+  majJournal();
+}
+
+function creerGroupe(cleRepli, libelle, classeCouleur, nombre){
+  const bloc = document.createElement('details');
+  bloc.className = 'groupe ' + classeCouleur;
+  bloc.open = !prefs.replis[cleRepli];
+
+  const entete = document.createElement('summary');
+  const pastille = document.createElement('span');
+  pastille.className = 'pastille ' + classeCouleur;
+  pastille.textContent = libelle;
+  const compte = document.createElement('span');
+  compte.className = 'compte-groupe';
+  compte.textContent = nombre;
+  entete.append(pastille, compte);
+  bloc.append(entete);
+
+  bloc.ontoggle = () => { prefs.replis[cleRepli] = !bloc.open; majPrefs(); };
+  return bloc;
+}
+
+function creerLigneTache(t){
     const li = document.createElement('li');
     li.className = 'p-' + t.prio + (t.faite ? ' faite' : '');
 
@@ -239,7 +357,11 @@ function afficher(){
     coche.type = 'checkbox';
     coche.checked = t.faite;
     coche.setAttribute('aria-label', 'Marquer comme faite');
-    coche.onchange = () => { t.faite = coche.checked; maj(); };
+    coche.onchange = () => {
+      t.faite = coche.checked;
+      if (t.faite) journaliser(t); else deJournaliser(t);
+      maj();
+    };
 
     const titre = document.createElement('span');
     titre.className = 'titre';
@@ -277,7 +399,29 @@ function afficher(){
       li.append(info);
     }
     li.append(suppr);
-    liste.append(li);
+    return li;
+}
+
+function afficher(){
+  const liste = document.getElementById('liste');
+  const masquer = document.getElementById('masquer').checked;
+  liste.innerHTML = '';
+  const visibles = taches.slice().sort(trier).filter(t => !(masquer && t.faite));
+
+  if (visibles.length >= SEUIL_GROUPES){
+    for (const p of ['haute', 'moyenne', 'basse']){
+      const duGroupe = visibles.filter(t => t.prio === p);
+      if (!duGroupe.length) continue;
+      const bloc = creerGroupe('taches:' + p, p, 'p-' + p, duGroupe.length);
+      const sousListe = document.createElement('ul');
+      for (const t of duGroupe) sousListe.append(creerLigneTache(t));
+      bloc.append(sousListe);
+      liste.append(bloc);
+    }
+  }else{
+    const plate = document.createElement('ul');
+    for (const t of visibles) plate.append(creerLigneTache(t));
+    liste.append(plate);
   }
 
   const restantes = taches.filter(t => !t.faite).length;
@@ -306,7 +450,7 @@ function modifier(li, titre, t){
   champ.select();
 }
 
-function maj(){ afficher(); enregistrerCle(CLE_TACHES, taches); }
+function maj(){ afficher(); afficherSuivi(); enregistrerCle(CLE_TACHES, taches); }
 
 function lundiDe(dateStr){
   const d = new Date(dateStr + 'T00:00');
@@ -368,12 +512,7 @@ function modifierHabitude(li, titre, h){
   champ.select();
 }
 
-function afficherHabitudes(){
-  const liste = document.getElementById('liste-habitudes');
-  liste.innerHTML = '';
-  const visibles = habitudes.slice().sort(trierHabitudes);
-
-  for (const h of visibles){
+function creerLigneHabitude(h){
     const n = progression(h);
     const cible = Math.max(1, h.objectif || 1);
     const atteint = n >= cible;
@@ -441,13 +580,271 @@ function afficherHabitudes(){
     suppr.onclick = () => { habitudes = habitudes.filter(x => x !== h); majHabitudes(); };
 
     li.append(titre, freq, objectif, barre, compte, incr, annuler, suppr);
-    liste.append(li);
+    return li;
+}
+
+function afficherHabitudes(){
+  const liste = document.getElementById('liste-habitudes');
+  liste.innerHTML = '';
+  const visibles = habitudes.slice().sort(trierHabitudes);
+
+  if (visibles.length >= SEUIL_GROUPES){
+    for (const f of ['quotidien', 'hebdomadaire', 'mensuel']){
+      const duGroupe = visibles.filter(h => h.frequence === f);
+      if (!duGroupe.length) continue;
+      const bloc = creerGroupe('habitudes:' + f, LIBELLE_FREQ[f], 'f-' + f, duGroupe.length);
+      const sousListe = document.createElement('ul');
+      for (const h of duGroupe) sousListe.append(creerLigneHabitude(h));
+      bloc.append(sousListe);
+      liste.append(bloc);
+    }
+  }else{
+    const plate = document.createElement('ul');
+    for (const h of visibles) plate.append(creerLigneHabitude(h));
+    liste.append(plate);
   }
 
   document.getElementById('vide-habitudes').hidden = habitudes.length > 0;
 }
 
-function majHabitudes(){ afficherHabitudes(); enregistrerCle(CLE_HABITUDES, habitudes); }
+function majHabitudes(){ afficherHabitudes(); afficherSuivi(); enregistrerCle(CLE_HABITUDES, habitudes); }
+
+const UNITE_PERIODE = {quotidien:'jours', hebdomadaire:'semaines', mensuel:'mois'};
+
+function periodesPrecedentes(frequence, n){
+  const cles = [];
+  if (frequence === 'mensuel'){
+    const [a, m] = aujourdhui().split('-').map(Number);
+    const d = new Date(a, m - 1, 1);
+    for (let i = 0; i < n; i++){
+      d.setMonth(d.getMonth() - 1);
+      cles.push(d.toLocaleDateString('sv').slice(0, 7));
+    }
+    return cles;
+  }
+  const pas = frequence === 'hebdomadaire' ? 7 : 1;
+  const d = new Date((frequence === 'hebdomadaire' ? lundiDe(aujourdhui()) : aujourdhui()) + 'T00:00');
+  for (let i = 0; i < n; i++){
+    d.setDate(d.getDate() - pas);
+    cles.push(cleDePeriode(frequence, d.toLocaleDateString('sv')));
+  }
+  return cles;
+}
+
+function bilanHabitude(h, n = 6){
+  const cible = Math.max(1, h.objectif || 1);
+  const debut = cleDePeriode(h.frequence, new Date(h.cree).toLocaleDateString('sv'));
+  return periodesPrecedentes(h.frequence, n)
+    .filter(cle => cle >= debut)
+    .map(cle => {
+      const faits = h.historique.filter(d => cleDePeriode(h.frequence, d) === cle).length;
+      return {cle, faits, cible, tenue: faits >= cible};
+    });
+}
+
+function serieHabitude(h){
+  let serie = 0;
+  for (const p of bilanHabitude(h, 24)){
+    if (!p.tenue) break;
+    serie++;
+  }
+  return serie;
+}
+
+function statsHabitudes(){
+  let tenues = 0, total = 0;
+  for (const h of habitudes){
+    for (const p of bilanHabitude(h)){ total++; if (p.tenue) tenues++; }
+  }
+  return {tenues, total};
+}
+
+function statsEcheances(){
+  const avec = journal.filter(e => e.respectee === true || e.respectee === false);
+  const respectees = avec.filter(e => e.respectee).length;
+  return {total: avec.length, respectees, taux: avec.length ? Math.round(respectees / avec.length * 100) : null};
+}
+
+function activiteRecente(jours = 7){
+  const limite = new Date(new Date(aujourdhui() + 'T00:00') - (jours - 1) * 86400000).toLocaleDateString('sv');
+  let realisations = 0;
+  for (const h of habitudes) realisations += h.historique.filter(d => d >= limite).length;
+  return {taches: journal.filter(e => e.faiteLe >= limite).length, realisations};
+}
+
+function meilleureSerie(){
+  let valeur = 0, unite = '';
+  for (const h of habitudes){
+    const serie = serieHabitude(h);
+    if (serie > valeur){ valeur = serie; unite = UNITE_PERIODE[h.frequence]; }
+  }
+  return {valeur, unite};
+}
+
+function suggestions(){
+  const liste = [];
+
+  const ec = statsEcheances();
+  if (ec.total >= 5 && ec.taux < 60){
+    liste.push({
+      cle: 'echeances:' + ec.total + ':' + ec.taux,
+      texte: 'Tu respectes ' + ec.taux + ' % de tes échéances (' + ec.respectees + ' sur ' + ec.total +
+             '). Prévois des échéances plus larges, ou mets moins de tâches en priorité haute.',
+      appliquer: null
+    });
+  }
+
+  const enCours = taches.filter(t => !t.faite);
+  const hautes = enCours.filter(t => t.prio === 'haute').length;
+  if (enCours.length >= SEUIL_GROUPES && hautes / enCours.length > 0.6){
+    liste.push({
+      cle: 'trop-hautes:' + hautes + ':' + enCours.length,
+      texte: hautes + ' de tes ' + enCours.length + " tâches en cours sont en priorité haute — si tout est prioritaire, plus rien ne l'est.",
+      appliquer: null
+    });
+  }
+
+  for (const h of habitudes){
+    const bilan = bilanHabitude(h);
+    if (bilan.length < 2) continue;
+    const cible = Math.max(1, h.objectif || 1);
+    const tenues = bilan.filter(p => p.tenue).length;
+    const moyenne = bilan.reduce((s, p) => s + p.faits, 0) / bilan.length;
+
+    if (bilan.slice(0, 2).every(p => p.faits === 0)){
+      liste.push({
+        cle: 'sommeil:' + h.cree + ':' + cible,
+        texte: '« ' + h.titre + " » n'a rien enregistré sur les 2 dernières périodes." +
+               (cible > 1 ? ' Repartir sur un objectif de 1 ?' : ' À relancer, ou à supprimer si elle ne te sert plus.'),
+        appliquer: cible > 1 ? () => { h.objectif = 1; majHabitudes(); } : null
+      });
+      continue;
+    }
+
+    if (bilan.length >= 4 && tenues / bilan.length < 0.4 && moyenne >= 1 && Math.round(moyenne) < cible){
+      const propose = Math.max(1, Math.round(moyenne));
+      liste.push({
+        cle: 'objectif-haut:' + h.cree + ':' + cible,
+        texte: '« ' + h.titre + ' » : objectif atteint ' + tenues + ' fois sur ' + bilan.length +
+               '. Passer de ' + cible + ' à ' + propose + ' ?',
+        appliquer: () => { h.objectif = propose; majHabitudes(); }
+      });
+      continue;
+    }
+
+    if (bilan.length >= 4 && tenues / bilan.length >= 0.75 && moyenne >= cible + 1){
+      const propose = Math.round(moyenne);
+      liste.push({
+        cle: 'objectif-bas:' + h.cree + ':' + cible,
+        texte: '« ' + h.titre + ' » : objectif dépassé régulièrement (' + moyenne.toFixed(1) +
+               ' en moyenne). Monter de ' + cible + ' à ' + propose + ' ?',
+        appliquer: () => { h.objectif = propose; majHabitudes(); }
+      });
+    }
+  }
+
+  return liste.filter(s => !prefs.ignorees.includes(s.cle)).slice(0, 3);
+}
+
+function creerTuile(valeur, libelle){
+  const tuile = document.createElement('div');
+  tuile.className = 'tuile';
+  const v = document.createElement('span');
+  v.className = 'tuile-valeur';
+  v.textContent = valeur;
+  const l = document.createElement('span');
+  l.className = 'tuile-libelle';
+  l.textContent = libelle;
+  tuile.append(v, l);
+  return tuile;
+}
+
+function afficherSuivi(){
+  const bloc = document.getElementById('suivi-contenu');
+  bloc.innerHTML = '';
+
+  const sh = statsHabitudes();
+  const ec = statsEcheances();
+  const act = activiteRecente(7);
+  const serie = meilleureSerie();
+
+  const rien = sh.total === 0 && ec.total === 0 && act.taches === 0 && act.realisations === 0;
+  document.getElementById('suivi-vide').hidden = !rien;
+  if (rien) return;
+
+  const tuiles = document.createElement('div');
+  tuiles.className = 'tuiles';
+  tuiles.append(
+    creerTuile(sh.total ? sh.tenues + ' / ' + sh.total : '—', 'périodes d\'habitude tenues'),
+    creerTuile(ec.total ? ec.taux + ' %' : '—', ec.total ? 'échéances respectées (' + ec.respectees + '/' + ec.total + ')' : 'échéances respectées'),
+    creerTuile(serie.valeur ? String(serie.valeur) : '—', serie.valeur ? 'meilleure série (' + serie.unite + ')' : 'meilleure série'),
+    creerTuile(act.taches + ' · ' + act.realisations, 'tâches · réalisations (7 j)')
+  );
+  bloc.append(tuiles);
+
+  for (const h of habitudes){
+    const bilan = bilanHabitude(h);
+    if (!bilan.length) continue;
+    const tenues = bilan.filter(p => p.tenue).length;
+
+    const ligne = document.createElement('div');
+    ligne.className = 'evolution';
+
+    const nom = document.createElement('span');
+    nom.className = 'evolution-titre';
+    nom.textContent = h.titre;
+
+    const cases = document.createElement('div');
+    cases.className = 'cases';
+    for (const p of bilan.slice().reverse()){
+      const c = document.createElement('span');
+      c.className = 'case' + (p.tenue ? ' tenue' : '');
+      c.title = p.cle + ' : ' + p.faits + ' / ' + p.cible + (p.tenue ? ' — tenue' : ' — ratée');
+      cases.append(c);
+    }
+
+    const ratio = document.createElement('span');
+    ratio.className = 'evolution-ratio';
+    ratio.textContent = tenues + ' / ' + bilan.length;
+
+    ligne.append(nom, cases, ratio);
+    bloc.append(ligne);
+  }
+
+  for (const s of suggestions()){
+    const carte = document.createElement('div');
+    carte.className = 'suggestion';
+
+    const texte = document.createElement('span');
+    texte.className = 'suggestion-texte';
+    texte.textContent = s.texte;
+    carte.append(texte);
+
+    if (s.appliquer){
+      const appliquer = document.createElement('button');
+      appliquer.type = 'button';
+      appliquer.className = 'appliquer';
+      appliquer.textContent = 'Appliquer';
+      appliquer.onclick = () => s.appliquer();
+      carte.append(appliquer);
+    }
+
+    const ignorer = document.createElement('button');
+    ignorer.type = 'button';
+    ignorer.className = 'ignorer';
+    ignorer.textContent = '×';
+    ignorer.title = 'Ignorer';
+    ignorer.onclick = () => {
+      prefs.ignorees.push(s.cle);
+      if (prefs.ignorees.length > 50) prefs.ignorees = prefs.ignorees.slice(-50);
+      majPrefs();
+      afficherSuivi();
+    };
+    carte.append(ignorer);
+
+    bloc.append(carte);
+  }
+}
 
 document.getElementById('form').onsubmit = e => {
   e.preventDefault();
@@ -470,6 +867,7 @@ document.getElementById('form').onsubmit = e => {
 document.getElementById('masquer').onchange = afficher;
 document.getElementById('purger').onclick = () => {
   if (!taches.some(t => t.faite)) return;
+  // Le journal n'est volontairement pas purgé : c'est lui qui garde l'historique du suivi.
   taches = taches.filter(t => !t.faite);
   maj();
 };
@@ -493,11 +891,20 @@ document.getElementById('form-habitude').onsubmit = e => {
   majHabitudes();
 };
 
-Promise.all([chargerCle(CLE_TACHES), chargerCle(CLE_HABITUDES)]).then(([t, h]) => {
+Promise.all([
+  chargerCle(CLE_TACHES), chargerCle(CLE_HABITUDES),
+  chargerCle(CLE_JOURNAL), chargerCle(CLE_PREFS)
+]).then(([t, h, j, p]) => {
   taches = Array.isArray(t) ? t : [];
   habitudes = Array.isArray(h) ? h : [];
+  journal = Array.isArray(j) ? j : [];
+  // chargerCle renvoie [] quand la clé est absente : les prefs sont un objet, on normalise.
+  prefs = (p && !Array.isArray(p) && typeof p === 'object') ? p : {};
+  if (!prefs.replis) prefs.replis = {};
+  if (!Array.isArray(prefs.ignorees)) prefs.ignorees = [];
   afficher();
   afficherHabitudes();
+  afficherSuivi();
 });
 
 if ('serviceWorker' in navigator){
