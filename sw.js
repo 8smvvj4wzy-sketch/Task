@@ -1,7 +1,15 @@
-const CACHE = 'checklist-v1';
+const CACHE = 'checklist-v2';
+const ESSENTIELS = [
+  './',
+  './index.html',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ESSENTIELS)));
 });
 
 self.addEventListener('activate', (e) => {
