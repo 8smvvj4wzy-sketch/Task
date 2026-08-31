@@ -268,4 +268,8 @@ document.getElementById('purger').onclick = () => {
 };
 
 charger().then(t => { taches = Array.isArray(t) ? t : []; afficher(); });
+
+if ('serviceWorker' in navigator){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+}
 </script>
